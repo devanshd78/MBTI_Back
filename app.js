@@ -1,4 +1,4 @@
-// server/app.js
+// app.js
 require('dotenv').config();
 
 const express = require('express');
@@ -13,6 +13,7 @@ const { connectDB, disconnectDB } = require('./db');
 const themeRoutes = require('./routes/themeRoutes');
 const resultRoutes = require('./routes/resultRoutes');
 const mbtiRoutes = require('./routes/mbtiRoutes');
+const mediaRoutes = require('./routes/mediaRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -46,11 +47,12 @@ app.get('/healthz', (_req, res) => {
 app.use('/themes', themeRoutes);
 app.use('/results', resultRoutes);
 app.use('/mbti', mbtiRoutes);
+app.use('/media', mediaRoutes);
 
 connectDB()
   .then(() => {
     const server = app.listen(PORT, () => {
-      console.log(`Server listening on http://localhost:${PORT}`);
+      console.log(`Server listening on ${PORT}`);
     });
 
     // Graceful shutdown
