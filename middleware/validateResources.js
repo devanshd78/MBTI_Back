@@ -8,6 +8,7 @@ function validateResource(schema) {
       query: req.query,
       params: req.params
     });
+
     if (!parsed.success) {
       const issues = parsed.error.flatten();
       return res.status(StatusCodes.BAD_REQUEST).json({
@@ -17,6 +18,13 @@ function validateResource(schema) {
         details: issues
       });
     }
+
+    // ✅ Write the sanitized/normalized data back to req
+    const { body, query, params } = parsed.data;
+    if (body !== undefined) req.body = body;
+    if (query !== undefined) req.query = query;
+    if (params !== undefined) req.params = params;
+
     next();
   };
 }
