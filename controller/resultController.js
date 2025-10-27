@@ -38,12 +38,12 @@ function normalizeOptionIndex(chosen, optionsLen) {
   return Number(chosen) || 0; // fallback
 }
 
-// Accumulate scores for a single question/answer
 function applyScoring(acc, question, optIdx) {
+  const scores = question.scores;
+
   // Case A: scores is an array where each index is an object of letter deltas
-  // e.g., scores[0] = { E: 1 }, scores[1] = { I: 1 }
-  if (Array.isArray(question.scores)) {
-    const entry = question.scores[optIdx] || {};
+  if (Array.isArray(scores)) {
+    const entry = scores[optIdx] || {};
     for (const k of Object.keys(entry)) {
       if (!LETTERS.includes(k)) continue;
       acc[k] = (acc[k] || 0) + Number(entry[k] || 0);
@@ -51,34 +51,51 @@ function applyScoring(acc, question, optIdx) {
     return;
   }
 
+  // Case A.1: scores is an OPTION-LABEL map, e.g. { A: 'E', B: 'I' } or { A: ['E','N'], B: ['I'] }
+  if (scores && typeof scores === 'object' && !Array.isArray(scores)) {
+    const optionLabels = ['A','B','C','D','E','F'];
+    const label = optionLabels[optIdx] ?? String(optIdx);
+    if (Object.prototype.hasOwnProperty.call(scores, label)) {
+      const val = scores[label];
+      const letters = Array.isArray(val) ? val : String(val || '').split('');
+      for (const raw of letters) {
+        const L = String(raw).toUpperCase();
+        if (LETTERS.includes(L)) {
+          acc[L] = (acc[L] || 0) + 1;
+        }
+      }
+      return;
+    }
+  }
+
   // Case B: scores is a map of letter -> [per-option values] OR letter -> constant
-  // e.g., { E: [2,1,0], I: [0,1,2] } OR { E: 1, I: 0 }
-  if (question.scores && typeof question.scores === 'object') {
-    for (const k of Object.keys(question.scores)) {
+  if (scores && typeof scores === 'object' && !Array.isArray(scores)) {
+    let matchedLetterMap = false;
+    for (const k of Object.keys(scores)) {
       if (!LETTERS.includes(k)) continue;
-      const v = question.scores[k];
+      matchedLetterMap = true;
+      const v = scores[k];
       const add = Array.isArray(v) ? Number(v[optIdx] || 0) : Number(v || 0);
       acc[k] = (acc[k] || 0) + add;
     }
-    return;
+    if (matchedLetterMap) return;
+    // If keys weren't letters and we didn't score, fall through to the dimension fallback
   }
 
-  // Case C: no explicit scores; infer from dimension + option position
-  // dimension like 'EI', 'SN', 'TF', 'JP'
+  // Case C: no usable scores; infer from dimension + option index
   if (question.dimension && typeof question.dimension === 'string') {
     const dim = question.dimension.toUpperCase().replace(/[^A-Z]/g, '');
     const [a, b] = [dim[0], dim[1]];
     if (LETTERS.includes(a) && LETTERS.includes(b)) {
+      // use options length if it's an array; otherwise assume 2
       const n = Array.isArray(question.options) ? question.options.length : 2;
-      const midpoint = (n - 1) / 2; // works for even/odd
-      // choose side by comparing to midpoint
+      const midpoint = (n - 1) / 2;
       const chosenLetter = optIdx > midpoint ? b : (optIdx < midpoint ? a : null);
-      if (chosenLetter) {
-        acc[chosenLetter] = (acc[chosenLetter] || 0) + 1;
-      }
+      if (chosenLetter) acc[chosenLetter] = (acc[chosenLetter] || 0) + 1;
     }
   }
 }
+
 
 // Turn letter totals into a 4-letter MBTI code (tie breaks to second letter for determinism)
 function decideType(letterTotals) {
